@@ -87,12 +87,25 @@ def lex(body):
 WIDTH, HEIGHT = 800, 600
 HSTEP, VSTEP = 13, 18
 
+FONTS = {}
+
+def get_font(size,weight,style):
+    key = (size, weight, style)
+    if key not in FONTS:
+        font = tkinter.font.Font(size=size, weight=weight, slant=style)
+        label = tkinter.Label(font=font)
+        FONTS[key] = (font,label)
+    return FONTS[key][0]
+
 class Layout:
     def __init__(self, tokens):
         self.display_list = []
+        self.size = 12
+        self.line = []
         self.cursor_x, self.cursor_y = HSTEP, VSTEP
         self.weight = "normal"
         self.style = "roman"
+        self.flush()
         for tok in tokens:
             self.token(tok)
 
@@ -109,20 +122,49 @@ class Layout:
             self.weight = "bold"
         elif tok.tag == "/b":
             self.weight = "normal"
+        elif tok.tag == "small":
+            self.size -= 2
+        elif tok.tag == "/small":
+            self.size += 2
+        elif tok.tag == "big":
+            self.size += 4
+        elif tok.tag == "/big":
+            self.size -= 4
+        elif tok.tag == "br":
+            self.flush()
+        elif tok.tag == "/p":
+            self.flush()
+            self.cursor_y += VSTEP
         return self.display_list
-    
+
     def word(self, word):
-        self.size = 16
-        font = tkinter.font.Font(size=self.size,weight=self.weight,slant=self.style)
+
+        font = get_font(self.size,self.weight,self.style)
         w = font.measure(word)
         if self.cursor_x + w > WIDTH - HSTEP:
-           self.cursor_x = HSTEP
-           self.cursor_y += font.metrics("linespace") * 1.25
+            self.flush()
+            self.cursor_x = HSTEP
+            self.cursor_y += font.metrics("linespace") * 1.25
 
-
-
-        self.display_list.append((self.cursor_x,self.cursor_y,word))
+        self.line.append((self.cursor_x,word,font))
         self.cursor_x += w + font.measure(" ")
+
+    def flush(self):
+        if not self.line: return
+        metrics = [font.metrics() for x, word,font in self.line]
+        max_ascent = max([metric["ascent"] for metric in metrics])
+
+        baseline = self.cursor_y + 1.25 * max_ascent
+
+        for x,word, font in self.line:
+            y = baseline - font.metrics("ascent")
+            self.display_list.append((x,y,word,font))
+
+        max_descent = max([metric["descent"] for metric in metrics])
+        self.cursor_y = baseline + 1.25 * max_descent
+
+        self.cursor_x = HSTEP
+        self.line = []
 
 SCROLL_STEP = 100
 
@@ -140,14 +182,11 @@ class Browser:
 
     def draw(self):
         self.canvas.delete("all")
-        print(self.display_list[0])
-        print(type(self.display_list[0]))
-        print(len(self.display_list[0]))
-        for x,y,c in self.display_list:
-
-            if y > self.scroll + HEIGHT: continue
-            if y - VSTEP < self.scroll: continue
-            self.canvas.create_text(x,y-self.scroll,text=c)
+        for x,y,word,font in self.display_list:
+                
+            if y > self.scroll + HEIGHT:continue
+            if y + font.metrics("linespace") < self.scroll:continue
+            self.canvas.create_text(x,y-self.scroll,text=word,font=font,anchor="nw")
 
     def load(self, url):
         body = url.request()

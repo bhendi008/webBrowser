@@ -266,7 +266,9 @@ class BlockLayout:
         if self.previous:
             self.y = self.previous.y + self.previous.height
         else:
+            self.x = self.parent.x
             self.y = self.parent.y
+            self.width = self.parent.width
 
         mode = self.layout_mode()
         if mode == "block":
@@ -291,15 +293,11 @@ class BlockLayout:
             child.layout()
 
         if mode == "block":
-            self.height = sum([
-                child.height for child in self.children])
+            self.height = sum(
+                child.height for child in self.children)
         else:
             self.height = self.cursor_y
     
-
-        self.width = WIDTH - 2*HSTEP
-        self.x = HSTEP
-        self.y = VSTEP
 
     def recurse(self, tree):
         if isinstance(tree, Text):

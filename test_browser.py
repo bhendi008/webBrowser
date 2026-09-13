@@ -1,5 +1,5 @@
 import unittest
-from browser import URL, HTMLParser, Layout
+from browser import URL, HTMLParser
 
 class TestURL(unittest.TestCase):
     def test_http_url(self):
